@@ -1,0 +1,15 @@
+<!doctype html><html><body style="margin:0"><canvas id="c" width="640" height="360"></canvas>
+<script type="module">
+import * as THREE from "three";
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById("c") });
+r.shadowMap.enabled = true;
+const type = new URLSearchParams(location.search).get("t");
+r.shadowMap.type = THREE[type] ?? THREE.PCFShadowMap;
+const s = new THREE.Scene(); s.background = new THREE.Color(0x88aacc);
+const cam = new THREE.PerspectiveCamera(50, 640/360, 0.1, 100); cam.position.set(6, 6, 10); cam.lookAt(0,0,0);
+const l = new THREE.DirectionalLight(0xffffff, 3); l.position.set(5, 10, 3); l.castShadow = true; s.add(l);
+s.add(new THREE.AmbientLight(0xffffff, 0.3));
+const b = new THREE.Mesh(new THREE.BoxGeometry(1,2,1), new THREE.MeshStandardMaterial({color:0xff0000})); b.position.y=1; b.castShadow = true; s.add(b);
+const p = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshStandardMaterial({color:0xffffff})); p.rotation.x=-Math.PI/2; p.receiveShadow = true; s.add(p);
+r.render(s, cam); window.__villeReady = true; window.__ville = { render(){ r.render(s,cam);} , setCamera(){}, setHour(){}, stats(){return {}} };
+</script></body></html>

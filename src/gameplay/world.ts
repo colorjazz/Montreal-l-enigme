@@ -54,6 +54,7 @@ export class Gameplay {
   readonly extraMarkers: (() => MapMarker[])[] = [];
   /** Obstacles supplémentaires pour la circulation (manifestants...). */
   extraObstacles: () => THREE.Vector3[] = () => [];
+  private beacon: THREE.Mesh;
   private collectMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd166, emissiveIntensity: 0.4, roughness: 0.5 });
 
   constructor(readonly game: Game) {
@@ -61,6 +62,22 @@ export class Gameplay {
     this.hud = new Hud(game.opts.ui, city.data, city.footprints, (x, z) => city.inPlayable(x, z));
     this.dialogue = new DialogueRunner<Gameplay>(this.hud, () => this as Gameplay);
     for (const l of game.landmarks.info) this.places.set(l.id, { name: l.name, pos: l.pos });
+    // colonne de lumière au-dessus de l'objectif (visible de loin)
+    const bg = new THREE.CylinderGeometry(0.9, 0.9, 60, 16, 1, true).translate(0, 30, 0);
+    const bm = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `varying float vY; void main(){ vY = position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `uniform float uTime; varying float vY; void main(){ float a = (1.0 - smoothstep(0.0, 60.0, vY)) * (0.55 + 0.15 * sin(uTime * 3.0 - vY * 0.3)); gl_FragColor = vec4(1.0, 0.82, 0.25, a * 0.55); }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    this.beacon = new THREE.Mesh(bg, bm);
+    this.beacon.name = "balise d'objectif";
+    this.beacon.visible = false;
+    this.beacon.frustumCulled = false;
+    game.scene.add(this.beacon);
     this.state.onItem = (id, d) => {
       const it = ITEMS[id];
       if (!it) return;
@@ -304,6 +321,11 @@ export class Gameplay {
       dist = this.playerDist(target);
       if (dist > 6) markers.push({ pos: new THREE.Vector3(target[0], SIDEWALK_Y + 4, target[1]), text: `◆ ${Math.round(dist)} m`, cls: "target" });
     }
+    // la balise ne s'affiche pas sous terre ni pour une cible souterraine vue de la surface
+    const tgtUnder = !!target && target[0] < -24 && target[0] > -60 && target[1] > 18 && target[1] < 42;
+    this.beacon.visible = !!target && dist !== null && dist > 15 && p.position.y > -2 && !tgtUnder;
+    if (target) this.beacon.position.set(target[0], 0, target[1]);
+    (this.beacon.material as THREE.ShaderMaterial).uniforms.uTime.value = this.time;
     this.hud.updateOverlay(this.game.camera, markers);
     const def = tq ? this.quests.defs.get(tq) : null;
     this.hud.setTracker(def ? def.title : null, tq ? this.quests.stepText(tq) : "", dist, !!def?.main);

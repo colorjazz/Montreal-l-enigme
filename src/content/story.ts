@@ -22,6 +22,8 @@ type G = Gameplay;
 const POEM = `Ce fut un grand Vaisseau taillé dans l'or massif :<br>Ses mâts touchaient l'azur, sur des mers inconnues ;<br>…<br>Qu'est devenu mon cœur, navire déserté ?<br>Hélas ! Il a sombré dans l'abîme du Rêve !`;
 
 const COFFEE_PRICE = 2.75;
+/** Entrée de l'édicule (côté rue Berri). */
+const METRO_DOOR: V2 = [-12.2, 28];
 const OPUS_PRICE = 3.75;
 
 export function installStory(g: G) {
@@ -325,8 +327,8 @@ export function installStory(g: G) {
         { id: "banq", text: "Va à la <b>Grande Bibliothèque</b> et parle au bibliothécaire.", target: (g) => g.place("banq") },
         { id: "theatre", text: "Rends-toi au <b>Théâtre St-Denis</b>, « là où l'on rit et chante depuis 1916 ».", target: (g) => g.place("theatre") },
         { id: "billet", text: "Retrouve le <b>billet perdu</b> sur la rue Saint-Denis, puis rapporte-le à Lucie.", target: (g) => (g.state.has("billet") ? g.place("theatre") : billetPos(g)) },
-        { id: "metro", text: "Descends dans la <b>station Berri-UQAM</b> et parle à l'agent de la STM.", target: () => [METRO.booth[0], METRO.booth[1]] },
-        { id: "opus", text: "Achète une <b>carte OPUS</b> au distributeur, puis montre-la à Kevin.", target: () => [METRO.machine[0], METRO.machine[1]] },
+        { id: "metro", text: "Descends dans la <b>station Berri-UQAM</b> et parle à l'agent de la STM.", target: (g) => (g.player.position.y > -2 ? METRO_DOOR : [METRO.booth[0], METRO.booth[1]]) },
+        { id: "opus", text: "Achète une <b>carte OPUS</b> au distributeur, puis montre-la à Kevin.", target: (g) => (g.player.position.y > -2 ? METRO_DOOR : [METRO.machine[0], METRO.machine[1]]) },
         { id: "clocher", text: "Trouve la plaque au pied du <b>clocher Saint-Jacques</b> (Saint-Denis et Sainte-Catherine).", target: (g) => g.place("plaque") },
         { id: "musicien", text: "Trouve le <b>musicien</b> de la Place Émilie-Gamelin.", target: () => gamelinC },
         { id: "cafe", text: `Achète un <b>café</b> aux Jardins Gamelin (${money(COFFEE_PRICE)}) pour Jean-Guy.`, target: (g) => (g.state.has("cafe") ? gamelinC : kiosk) },

@@ -35,9 +35,12 @@ interface Car {
   bus: boolean;
   busStopT: number;
   busWait: number;
+  waitingLight?: boolean;
 }
 
 const CYCLE = 46;
+/** Vitesse maximale permettant de s'arrêter dans la distance d (décélération confortable). */
+const brake = (d: number, gap: number) => Math.sqrt(2 * 5.5 * Math.max(0, d - gap));
 
 function colorize(g: THREE.BufferGeometry, color: THREE.ColorRepresentation): THREE.BufferGeometry {
   const ng = g.index ? g.toNonIndexed() : g;
@@ -60,16 +63,20 @@ function carGeometry(kind: "sedan" | "hatch" | "suv" | "taxi", paint: string): T
   const L = kind === "suv" ? 4.7 : kind === "hatch" ? 4.0 : 4.5;
   const W = kind === "suv" ? 1.95 : 1.8;
   const H = kind === "suv" ? 0.95 : 0.75;
-  const glass = "#1c2630";
+  const glass = "#3d5060";
   parts.push(colorize(new THREE.BoxGeometry(W, H, L).translate(0, 0.35 + H / 2, 0), paint));
+  // habitacle trapézoïdal : pare-brise et lunette inclinés
+  const taper = (g: THREE.BufferGeometry, kx: number, kz: number) => {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) if (p.getY(i) > 0) p.setXYZ(i, p.getX(i) * kx, p.getY(i), p.getZ(i) * kz);
+    return g;
+  };
   const cabL = kind === "hatch" ? L * 0.55 : kind === "suv" ? L * 0.62 : L * 0.5;
   const cabZ = kind === "hatch" ? -0.3 : kind === "suv" ? -0.35 : -0.15;
   const cabH = kind === "suv" ? 0.75 : 0.62;
   // habitacle vitré, légèrement plus étroit
-  parts.push(colorize(new THREE.BoxGeometry(W * 0.86, cabH, cabL).translate(0, 0.35 + H + cabH / 2, cabZ), glass));
-  parts.push(colorize(new THREE.BoxGeometry(W * 0.88, 0.06, cabL * 0.92).translate(0, 0.35 + H + cabH + 0.02, cabZ), paint));
-  // montants
-  for (const s of [1, -1]) parts.push(colorize(new THREE.BoxGeometry(0.06, cabH, 0.12).translate(s * W * 0.43, 0.35 + H + cabH / 2, cabZ), paint));
+  parts.push(colorize(taper(new THREE.BoxGeometry(W * 0.88, cabH, cabL), 0.9, kind === "suv" ? 0.88 : 0.72).translate(0, 0.35 + H + cabH / 2, cabZ), glass));
+  parts.push(colorize(taper(new THREE.BoxGeometry(W * 0.8, 0.05, cabL * (kind === "suv" ? 0.88 : 0.72)), 1, 1).translate(0, 0.35 + H + cabH + 0.02, cabZ), paint));
   // roues
   for (const [x, z] of [
     [W / 2 - 0.12, L / 2 - 0.8],
@@ -77,8 +84,8 @@ function carGeometry(kind: "sedan" | "hatch" | "suv" | "taxi", paint: string): T
     [W / 2 - 0.12, -L / 2 + 0.8],
     [-W / 2 + 0.12, -L / 2 + 0.8],
   ]) {
-    parts.push(colorize(new THREE.CylinderGeometry(0.34, 0.34, 0.24, 12).rotateZ(Math.PI / 2).translate(x, 0.34, z), "#111111"));
-    parts.push(colorize(new THREE.CylinderGeometry(0.18, 0.18, 0.26, 8).rotateZ(Math.PI / 2).translate(x, 0.34, z), "#9aa0a6"));
+    parts.push(colorize(new THREE.CylinderGeometry(0.34, 0.34, 0.24, 8).rotateZ(Math.PI / 2).translate(x, 0.34, z), "#111111"));
+    parts.push(colorize(new THREE.CylinderGeometry(0.18, 0.18, 0.26, 6, 1, true).rotateZ(Math.PI / 2).translate(x, 0.34, z), "#9aa0a6"));
   }
   // pare-chocs
   parts.push(colorize(new THREE.BoxGeometry(W + 0.04, 0.22, 0.2).translate(0, 0.42, L / 2), "#2a2a2a"));
@@ -151,6 +158,68 @@ export class Traffic {
     this.busGeo = busGeometry();
     this.buildLanes();
     this.busStops = props.busStops.map((b) => ({ x: b.x, z: b.z }));
+    this.buildParked();
+  }
+
+  parkedCount = 0;
+
+  /** Voitures stationnées le long des trottoirs (instanciées, avec collisions). */
+  private buildParked() {
+    const R = this.physics.RAPIER;
+    const data = this.city.data;
+    const rng = new Rng(2718);
+    const buckets = new Map<string, { gi: number; ms: THREE.Matrix4[] }>();
+    const skip = new Set(["berri", "maisonneuve", "rene", "stecath", "sthubert", "joly", "nord"]);
+    for (const s of data.streets) {
+      if (skip.has(s.id)) continue;
+      const A = new THREE.Vector3(s.a[0], 0, s.a[1]);
+      const B = new THREE.Vector3(s.b[0], 0, s.b[1]);
+      const L = A.distanceTo(B);
+      const dir = B.clone().sub(A).divideScalar(L);
+      const right = new THREE.Vector3(-dir.z, 0, dir.x);
+      const sides: number[] = s.w >= 8 ? [1, -1] : [-1];
+      // carrefours le long de la rue
+      const blocked: [number, number][] = [];
+      for (const it of data.intersections) {
+        if (!it.s.includes(s.id)) continue;
+        const o = this.city.streetById.get(it.s[0] === s.id ? it.s[1] : it.s[0])!;
+        const t = new THREE.Vector3(it.p[0], 0, it.p[1]).sub(A).dot(dir);
+        const half = o.w / 2 + o.sw + 7;
+        blocked.push([t - half, t + half]);
+      }
+      for (const side of sides) {
+        const off = s.w / 2 - 1.15;
+        for (let t = 5; t < L - 5; t += 6.3) {
+          if (blocked.some(([a, b]) => t > a && t < b)) continue;
+          if (rng.chance(0.45)) continue;
+          const p = A.clone().addScaledVector(dir, t).addScaledVector(right, off * side);
+          if (!this.city.inPlayable(p.x, p.z, 12)) continue;
+          // chantier de la rue Saint-Denis et abords du métro
+          if (s.id === "stdenis" && side === 1 && p.z > -125 && p.z < -80) continue;
+          if (this.busStops.some((b) => Math.hypot(b.x - p.x, b.z - p.z) < 14)) continue;
+          // sens du stationnement : celui de la circulation de ce côté
+          const travel = s.oneway === 2 ? side : s.oneway;
+          const yaw = Math.atan2(dir.x * travel, dir.z * travel) + rng.range(-0.03, 0.03);
+          const gi = Math.floor(rng.float() * this.carGeos.length);
+          const m = new THREE.Matrix4().compose(new THREE.Vector3(p.x, 0, p.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(1, 1, 1));
+          const key = `${gi}:${Math.floor(p.x / 170)},${Math.floor(p.z / 170)}`;
+          let b = buckets.get(key);
+          if (!b) buckets.set(key, (b = { gi, ms: [] }));
+          b.ms.push(m);
+          this.physics.world.createCollider(R.ColliderDesc.cuboid(0.93, 0.8, 2.3).setTranslation(p.x, 0.95, p.z).setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }), this.physics.fixedBody);
+          this.parkedCount++;
+        }
+      }
+    }
+    buckets.forEach(({ gi: i, ms }) => {
+      const im = new THREE.InstancedMesh(this.carGeos[i], this.carMat, ms.length);
+      ms.forEach((m, k) => im.setMatrixAt(k, m));
+      im.castShadow = true;
+      im.receiveShadow = true;
+      im.computeBoundingSphere();
+      im.name = "voitures stationnées";
+      this.group.add(im);
+    });
   }
 
   private buildLanes() {
@@ -332,7 +401,7 @@ export class Traffic {
       for (const o of this.cars) {
         if (o === car || !o.active || o.lane !== lane) continue;
         const gap = o.t - o.len / 2 - front;
-        if (gap > -1 && gap < 40) target = Math.min(target, Math.max(0, (gap - 3) * 0.9));
+        if (gap > -1 && gap < 40) target = Math.min(target, brake(gap, 2.5));
       }
       // feux et ARRÊT
       for (const s of lane.stops) {
@@ -346,8 +415,11 @@ export class Traffic {
         if (s.kind === "light") {
           const st = this.signal(s.inter, s.axis);
           if (st === "r" || (st === "y" && d > 6)) {
-            target = Math.min(target, Math.max(0, d * 0.75));
-            if (d < 1.5 && car.speed < 0.5) this.stats.stoppedAtLights++;
+            target = Math.min(target, brake(d, 0.3));
+            if (d < 2 && car.speed < 0.5 && !car.waitingLight) {
+              car.waitingLight = true;
+              this.stats.stoppedAtLights++;
+            }
           }
         } else if (!s.priority) {
           if (d < 0.8 && car.speed < 0.3) {
@@ -357,7 +429,7 @@ export class Traffic {
               car.stopWait = 0;
             }
           }
-          target = Math.min(target, Math.max(0, d * 0.75));
+          target = Math.min(target, brake(d, 0.3));
         }
         break;
       }
@@ -365,7 +437,7 @@ export class Traffic {
       if (car.bus && car.busStopT > 0) {
         const d = car.busStopT - car.t;
         if (d < 30 && d > -1) {
-          target = Math.min(target, Math.max(0, d * 0.7));
+          target = Math.min(target, brake(d, 0.2));
           if (Math.abs(d) < 1.2 && car.speed < 0.3) {
             car.busWait += h;
             if (car.busWait > 6) car.busStopT = -1;
@@ -381,15 +453,17 @@ export class Traffic {
         const v = p.clone().sub(pos);
         const ahead = v.dot(lane.dir) - car.len / 2;
         const lat = Math.abs(v.dot(right));
-        if (lat < 1.9 && ahead > -0.5 && ahead < 14) {
-          target = Math.min(target, Math.max(0, (ahead - 2.2) * 0.8));
+        if (lat < 1.9 && ahead > -0.5 && ahead < 26) {
+          target = Math.min(target, brake(ahead, 2.6));
           if (isPlayer && ahead < 6) blockedByPlayer = true;
         }
       };
       check(player, true);
       for (const p of peds) if (Math.abs(p.x - pos.x) < 20 && Math.abs(p.z - pos.z) < 20) check(p, false);
+      if (car.speed > 2) car.waitingLight = false;
       // accélération / freinage
-      const acc = target > car.speed ? 2.6 : 7.5;
+      // freinage d'urgence si la consigne chute brutalement
+      const acc = target > car.speed ? 2.6 : car.speed - target > 3 ? 11 : 6;
       car.speed += Math.sign(target - car.speed) * Math.min(Math.abs(target - car.speed), acc * h);
       car.t += car.speed * h;
       // klaxon si le joueur bloque

@@ -585,9 +585,25 @@ await test("Circulation : véhicules en mouvement, arrêts aux feux, sécurité 
     const stopped = v.game.traffic.stats.stoppedAtLights - s0;
     // le joueur se plante sur la voie, 16 m devant une voiture qui roule
     const hits0 = v.game.traffic.stats.hits;
-    const car = v.game.traffic.cars.find((c) => c.active && !c.bus && c.speed > 4 && c.t + 30 < c.lane.len);
-    if (!car) throw new Error("aucune voiture en mouvement");
-    const lp = car.lane.a.clone().addScaledVector(car.lane.dir, car.t + car.len / 2 + 16);
+    // une voiture en mouvement dont la voie est dégagée de tout carrefour sur 25 m autour du point visé
+    const inters = v.game.city.data.intersections;
+    const farFromCrossing = (p) => inters.every((it) => Math.hypot(it.p[0] - p.x, it.p[1] - p.z) > 25);
+    let car = null;
+    let lp = null;
+    for (let tries = 0; tries < 40 && !car; tries++) {
+      for (const c of v.game.traffic.cars) {
+        if (!c.active || c.bus || c.speed < 4 || c.t + 30 > c.lane.len) continue;
+        const q = c.lane.a.clone().addScaledVector(c.lane.dir, c.t + c.len / 2 + 16);
+        const ahead = v.game.traffic.cars.some((o) => o !== c && o.active && o.lane === c.lane && o.t > c.t && o.t < c.t + 30);
+        if (farFromCrossing(q) && !ahead) {
+          car = c;
+          lp = q;
+          break;
+        }
+      }
+      if (!car) v.simulate(0.5);
+    }
+    if (!car) throw new Error("aucune voiture en mouvement loin d'un carrefour");
     v.teleport(lp.x, 0.0, lp.z, Math.atan2(-car.lane.dir.x, -car.lane.dir.z));
     v.simulate(5);
     const gap = car.lane.a.clone().addScaledVector(car.lane.dir, car.t).distanceTo(v.game.player.position);
@@ -599,7 +615,7 @@ await test("Circulation : véhicules en mouvement, arrêts aux feux, sécurité 
     if (cars.length < 8) throw new Error(`trop peu de voitures (${cars.length})`);
     if (moved < cars.length * 0.4) throw new Error(`voitures immobiles (${moved}/${cars.length})`);
     if (stopped === 0) throw new Error("aucun arrêt au feu rouge");
-    return { voitures: cars.length, enMouvement: moved, imagesArrêtAuFeu: stopped, arrêtDevantLeJoueur_m: +gap.toFixed(1), chocs: hits, klaxons: v.game.traffic.stats.honks };
+    return { voitures: cars.length, enMouvement: moved, arrêtsAuFeuRouge: stopped, arrêtDevantLeJoueur_m: +gap.toFixed(1), chocs: hits, klaxons: v.game.traffic.stats.honks };
   });
 });
 
@@ -701,6 +717,26 @@ await test("Performance (logique et rendu)", async () => {
   const fr = await ev(() => window.__ville.frameStats());
   const st = await ev(() => window.__ville.stats());
   return { logiqueParImage_ms: +logic.toFixed(2), rendu_ms_parImage_SwiftShader: +fr.avgMs.toFixed(1), ips_SwiftShader: +(1000 / fr.avgMs).toFixed(1), appelsDeDessin: st.calls, triangles: st.triangles };
+});
+
+await test("Son synthétisé (Web Audio)", async () => {
+  return ev(() => {
+    const v = window.__ville;
+    const a = v.game.audio;
+    a.start();
+    const n0 = a.played;
+    v.teleport(-14.5, 0.17, 41, Math.PI / 2);
+    v.simulate(3, ["KeyW"]);
+    a.ui("quest");
+    a.metroChime();
+    a.honk(5);
+    a.bell(3, 50);
+    a.music("alouette");
+    const n = a.played - n0;
+    if (!a.ctx) throw new Error("contexte audio absent");
+    if (n < 30) throw new Error(`trop peu de sons : ${n}`);
+    return { sonsProgrammés: n, étatContexte: a.ctx.state };
+  });
 });
 
 await test("Aucune erreur dans la console", async () => {

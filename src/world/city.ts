@@ -422,7 +422,10 @@ export class City {
       tint.set(tints[Math.floor(h * tints.length) % tints.length]);
       const residentialRow = !!b.row && !b.landmark;
       const front = this.frontageFor(poly, 0, 0, bi);
-      const commercial = !b.filler && front.some((f) => f.commercial) && style !== "glass";
+      // les grands repères (UQAM, BAnQ, gare...) n'ont pas de vitrines de boutique
+      const bigLandmark = !!b.landmark && ["banq", "judith", "hubert", "gare", "cegep", "dupuis", "berri1259", "mhotel"].some((k) => b.landmark!.startsWith(k));
+      const commercial = !b.filler && !bigLandmark && front.some((f) => f.commercial) && style !== "glass";
+      const commercialEdges = new Set(front.filter((f) => f.commercial).map((f) => `${f.p0[0]},${f.p0[1]}`));
       const groundH = commercial || style === "glass" || style === "modern" ? 4.2 : L.tileH;
       const floors = Math.max(1, b.floors);
       const height = groundH + (floors - 1) * L.tileH;
@@ -447,11 +450,11 @@ export class City {
         // rez-de-chaussée
         let gLayer = layer;
         let gBays = bays;
-        if (commercial && isFront) {
+        if (commercial && commercialEdges.has(`${p0[0]},${p0[1]}`)) {
           gLayer = hash01(bi * 3 + i) < 0.5 ? shopA : shopB;
           gBays = Math.max(1, Math.round(len / 4.0));
         } else if (groundH === 4.2) {
-          gLayer = style === "glass" || style === "modern" ? lobby : layer;
+          gLayer = style === "glass" || style === "modern" || (bigLandmark && isFront && style !== "uqam" && style !== "banq") ? lobby : layer;
           gBays = gLayer === lobby ? Math.max(1, Math.round(len / 4.0)) : bays;
         }
         const groundTint = gLayer === layer ? tint : new THREE.Color(1, 1, 1);

@@ -63,6 +63,9 @@ export class Events {
   private fwData: { pos: THREE.Vector3; vel: THREE.Vector3; life: number; col: THREE.Color }[] = [];
   private fwTimer = 0;
   private lastHourBell = -1;
+  private leaves: THREE.InstancedMesh;
+  private leafData: { p: THREE.Vector3; v: THREE.Vector3; rot: THREE.Euler; spin: THREE.Vector3 }[] = [];
+  private sitters: Extra[] = [];
   stats = { started: 0 };
 
   constructor(private g: G) {
@@ -98,6 +101,36 @@ export class Events {
         return { home, pos: home.clone(), vel: new THREE.Vector3(), flying: 0, peck: Math.random() * 6 };
       }),
     };
+    // feuilles d'érable qui tombent (automne)
+    const leafShape = new THREE.Shape();
+    for (let i = 0; i <= 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const r = i % 2 === 0 ? 0.09 : 0.045;
+      if (i === 0) leafShape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else leafShape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    const leafGeo = new THREE.ShapeGeometry(leafShape);
+    this.leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.9 }), 70);
+    this.leaves.frustumCulled = false;
+    this.leaves.name = "feuilles mortes";
+    const pal = ["#c0392b", "#d35400", "#e67e22", "#f1c40f", "#a04000"];
+    for (let i = 0; i < 70; i++) {
+      this.leafData.push({ p: new THREE.Vector3(9999, 0, 0), v: new THREE.Vector3(), rot: new THREE.Euler(Math.random() * 6, Math.random() * 6, 0), spin: new THREE.Vector3(Math.random() * 3, Math.random() * 3, Math.random() * 3) });
+      this.leaves.setColorAt(i, new THREE.Color(pal[i % pal.length]));
+    }
+    scene.add(this.leaves);
+    // quelques personnes assises sur les bancs des parcs
+    const benches = g.game.props.benchSpots.filter((b) => g.game.city.data.parks.some((pk) => pk.name && Math.hypot(b.x - pk.poly[0][0], b.z - pk.poly[0][1]) < 200));
+    for (let i = 0; i < Math.min(7, benches.length); i++) {
+      const b = benches[(i * 5) % benches.length];
+      const e = new Extra(scene, 3300 + i * 17, { backpack: undefined });
+      e.pos.set(b.x, SIDEWALK_Y + 0.02, b.z);
+      e.facing = b.rot;
+      e.anim = i % 3 === 0 ? "phone" : "sit";
+      if (e.anim === "phone") attachProp(e.c, "phone");
+      this.sitters.push(e);
+    }
+
     // feux d'artifice
     const fg = new THREE.BufferGeometry();
     fg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(600 * 3), 3));
@@ -190,6 +223,21 @@ export class Events {
     }
     this.updatePigeons(dt);
     this.updateFireworks(dt);
+    this.updateLeaves(dt);
+    for (const e of this.sitters) {
+      if (e.pos.distanceToSquared(p) < 90 * 90) {
+        // assis : pose « sit » ; au téléphone : assis aussi, avec le bras levé
+        e.c.root.position.copy(e.pos);
+        e.c.root.rotation.y = e.facing;
+        e.c.anim.update(dt, 0, "sit");
+        if (e.anim === "phone") {
+          e.c.bones.upperArmR.rotation.x = -0.4;
+          e.c.bones.upperArmR.rotation.z = -0.35;
+          e.c.bones.forearmR.rotation.x = -2.1;
+        }
+        e.c.root.visible = true;
+      } else e.c.root.visible = false;
+    }
     // cloches du clocher Saint-Jacques à chaque heure
     const h = Math.floor(env.hours);
     if (h !== this.lastHourBell) {
@@ -569,6 +617,30 @@ export class Events {
     }
     pos.needsUpdate = true;
     col.needsUpdate = true;
+  }
+
+  private updateLeaves(dt: number) {
+    const cam = this.g.game.camera.position;
+    const m = new THREE.Matrix4();
+    const under = this.g.player.position.y < -2;
+    this.leafData.forEach((l, i) => {
+      if (l.p.y < 0.05 || l.p.distanceTo(cam) > 30 || under) {
+        if (under) l.p.set(0, -999, 0);
+        else {
+          l.p.set(cam.x + (Math.random() - 0.5) * 40, 6 + Math.random() * 8, cam.z + (Math.random() - 0.5) * 40);
+          l.v.set((Math.random() - 0.3) * 0.8, -0.6 - Math.random() * 0.5, (Math.random() - 0.5) * 0.8);
+        }
+      }
+      const t = this.g.time;
+      l.p.x += (l.v.x + Math.sin(t * 1.3 + i) * 0.6) * dt;
+      l.p.y += l.v.y * dt * (this.rainAmount > 0.5 ? 2.2 : 1);
+      l.p.z += (l.v.z + Math.cos(t * 1.1 + i * 0.7) * 0.6) * dt;
+      l.rot.x += l.spin.x * dt;
+      l.rot.y += l.spin.y * dt;
+      m.compose(l.p, new THREE.Quaternion().setFromEuler(l.rot), new THREE.Vector3(1, 1, 1));
+      this.leaves.setMatrixAt(i, m);
+    });
+    this.leaves.instanceMatrix.needsUpdate = true;
   }
 
   // ------------------------------------------------------------ pigeons

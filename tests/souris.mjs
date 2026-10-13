@@ -1,6 +1,6 @@
 // Vérifie que la souris reprend le contrôle de la caméra après la pause (Échap) et après l'écran de fin.
 import { chromium } from "playwright-core";
-const BASE = process.env.BASE_URL || "http://localhost:4181/";
+const BASE = process.env.BASE_URL || "http://localhost:4173/";
 const browser = await chromium.launch({
   executablePath: process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
   args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"],

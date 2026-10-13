@@ -10,7 +10,7 @@ export const ITEMS: Record<string, { name: string; icon: string; desc: string }>
   indice3: { name: "Indice n° 3", icon: "📜", desc: "« Là où les cloches ne sonnent plus pour la messe, mais pour le savoir. »" },
   indice4: { name: "Indice n° 4", icon: "📜", desc: "« Cherche la musique sur la place où l'on se rassemble. »" },
   vaisseau: { name: "Le Vaisseau d'or", icon: "⛵", desc: "Une petite caravelle dorée, cachée depuis 1966 par des étudiants du Quartier latin." },
-  portefeuille: { name: "Portefeuille", icon: "👛", desc: "Un portefeuille brun trouvé sur le trottoir. Il contient une carte au nom de Martine Roy." },
+  portefeuille: { name: "Portefeuille", icon: "👛", desc: "Un portefeuille brun trouvé sur le trottoir. Il contient une carte au nom de Mariama Diallo." },
   depliant: { name: "Dépliant du festival", icon: "📰", desc: "Programme des spectacles du Quartier latin." },
   poutine: { name: "Poutine", icon: "🍟", desc: "Frites, fromage en grains et sauce brune." },
 };

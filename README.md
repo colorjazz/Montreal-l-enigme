@@ -64,7 +64,7 @@ Place Dupuis, Place Émilie-Gamelin (allées, sculptures, Jardins Gamelin et
 leurs guirlandes), Place Pasteur, Cégep du Vieux Montréal ; au loin, le
 mont Royal et sa croix illuminée, le centre-ville, le pont Jacques-Cartier.
 
-**La vie du quartier** : 11 personnages nommés avec dialogues à choix,
+**La vie du quartier** : 11 personnages nommés avec dialogues à choix (surtout québécois, mais aussi francophones d'ailleurs : Yasmine d'Alger, Fabienne de Port-au-Prince, Mariama de Dakar, Pierre-Yves de Lyon),
 une quarantaine de passants qui circulent sur les trottoirs et traversent
 aux passages piétons (on peut les saluer), une vingtaine de voitures, taxis
 et autobus de la STM qui respectent les feux et les arrêts, freinent devant
@@ -150,6 +150,7 @@ dialogues des 11 personnages, la quête principale de bout en bout, les 6
 quêtes secondaires, les 8 événements, le planificateur d'événements, la
 circulation (arrêts aux feux, arrêt devant le joueur, aucun choc), le cycle
 jour/nuit, l'interface, le son, les performances et l'absence d'erreurs.
+`npm run test:souris` (serveur déjà lancé, `BASE_URL`) vérifie en plus que la caméra reprend la souris après la pause (Échap) et après l'écran de fin.
 Le rapport (`tests/artefacts/rapport.json`) et des captures d'écran sont
 écrits dans `tests/artefacts/`.
 

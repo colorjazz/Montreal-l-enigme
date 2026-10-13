@@ -29,6 +29,7 @@ export class Input {
       if (e.button === 0 || e.button === 2) this.dragging = true;
     });
     window.addEventListener("mouseup", () => (this.dragging = false));
+    window.addEventListener("blur", () => (this.dragging = false));
     window.addEventListener("mousemove", (e) => {
       if (this.locked || this.dragging) {
         this.mouseDX += e.movementX;
@@ -45,17 +46,31 @@ export class Input {
       { passive: false },
     );
     document.addEventListener("pointerlockchange", () => {
+      const was = this.locked;
       this.locked = document.pointerLockElement === canvas;
+      this.lockPending = false;
+      // évite un saut de caméra au moment du (dé)verrouillage
+      this.mouseDX = this.mouseDY = 0;
+      if (was !== this.locked) this.onLockChange?.(this.locked);
     });
+    document.addEventListener("pointerlockerror", () => (this.lockPending = false));
   }
 
+  /** Appelé quand le pointeur est verrouillé ou libéré (Échap du navigateur, changement d'onglet…). */
+  onLockChange: ((locked: boolean) => void) | null = null;
+  private lockPending = false;
+
   requestLock() {
-    if (this.isTouch || this.locked) return;
+    if (this.isTouch || this.locked || this.lockPending) return;
     try {
+      this.lockPending = true;
       const p = this.canvas.requestPointerLock() as unknown as Promise<void> | undefined;
-      p?.catch?.(() => {});
+      // Chrome refuse un nouveau verrouillage pendant ~1 s après une sortie par Échap :
+      // un clic dans la scène le relance (voir l'indice « Clique pour regarder autour »).
+      p?.catch?.(() => (this.lockPending = false));
+      if (!p) setTimeout(() => (this.lockPending = false), 1500);
     } catch {
-      /* navigateur sans verrouillage */
+      this.lockPending = false;
     }
   }
 

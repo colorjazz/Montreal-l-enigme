@@ -34,6 +34,8 @@ export class Screens {
     this.game.paused = p;
     this.game.input.enabled = !p;
     if (p) this.game.input.releaseLock();
+    // retour au jeu : on reprend le contrôle de la caméra (le clic ou la touche est le geste requis)
+    else if (!this.open && !this.g.dialogue.open) this.game.input.requestLock();
   }
 
   intro(onStart: () => void) {

@@ -195,17 +195,39 @@ game
   .then(() => {
     loader.remove();
     screens = new Screens(game, game.gameplay);
-    game.onMainQuestDone = () => screens?.ending();
+    // l'écran de fin attend que la dernière conversation soit fermée
+    const showEnding = () => (game.gameplay.dialogue.open || screens?.open ? setTimeout(showEnding, 400) : screens?.ending());
+    game.onMainQuestDone = showEnding;
     installTouch(game, ui);
     game.start();
     canvas.addEventListener("click", () => {
       game.audio.start();
       if (!screens?.open && !game.gameplay.dialogue.open) game.input.requestLock();
     });
+    // Indice quand la caméra ne suit plus la souris (pointeur libéré)
+    const lockHint = document.createElement("div");
+    lockHint.className = "lock-hint";
+    lockHint.innerHTML = "🖱️ Clique dans la scène pour regarder autour";
+    lockHint.hidden = true;
+    ui.appendChild(lockHint);
+    const refreshHint = () => {
+      lockHint.hidden = test || game.input.isTouch || game.input.locked || !!screens?.open || game.gameplay.dialogue.open;
+    };
+    setInterval(refreshHint, 250);
+    // Le navigateur libère le pointeur avec Échap (sans toujours transmettre la touche) : on ouvre la pause
+    let autoPausedAt = -1e9;
+    game.input.onLockChange = (locked) => {
+      refreshHint();
+      if (locked || test || !screens || screens.open || game.gameplay.dialogue.open) return;
+      autoPausedAt = performance.now();
+      screens.togglePause();
+    };
     window.addEventListener("keydown", (e) => {
       if (e.repeat) return;
       if (e.code === "Escape") {
         if (game.gameplay.dialogue.open) return;
+        // la même pression d'Échap a déjà ouvert la pause en libérant le pointeur
+        if (performance.now() - autoPausedAt < 500) return;
         screens?.togglePause();
       } else if (e.code === "KeyJ" && !game.gameplay.dialogue.open && !game.gameplay.hud.isScreenOpen("pause")) screens?.journal();
       else if (e.code === "KeyM" && !game.gameplay.dialogue.open && !game.gameplay.hud.isScreenOpen("pause")) screens?.map();

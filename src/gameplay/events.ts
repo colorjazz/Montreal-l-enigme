@@ -687,11 +687,11 @@ function spawnMartine(g: G) {
   g.addNpc(
     {
       id: "martine",
-      name: "Martine Roy",
-      role: "infirmière, CHUM",
+      name: "Mariama Diallo",
+      role: "infirmière, CHUM (originaire de Dakar)",
       color: "#e76f51",
       seed: 5150,
-      look: { topStyle: "coat", top: "#457b9d", hairStyle: "long", hair: "#4a3020", bottomStyle: "pants", hat: "none" },
+      look: { skin: "#5c3a24", topStyle: "coat", top: "#457b9d", hairStyle: "long", hair: "#15100c", bottomStyle: "pants", hat: "none", scarf: "#f4a261" },
       at: () => ({ x, z, facing: 0 }),
       barks: ["Mon portefeuille… je l'ai perdu ! Quelqu'un l'a vu ?"],
     },
@@ -704,7 +704,7 @@ function spawnMartine(g: G) {
         ],
       },
       merci: {
-        text: "Merci, merci ! Il reste encore des gens honnêtes en ville. Tenez, je tiens à vous donner une récompense.",
+        text: "Jërëjëf ! Ça veut dire « merci » en wolof, chez moi, à Dakar. Merci, merci ! Il reste encore des gens honnêtes en ville. Tenez, je tiens à vous donner une récompense.",
         do: (gg) => {
           gg.state.take("portefeuille");
           gg.state.flag("honnete");

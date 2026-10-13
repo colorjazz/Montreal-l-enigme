@@ -164,17 +164,17 @@ export function installStory(g: G) {
     (g) => (g.quests.at("enigme", "musicien") || (g.quests.at("enigme", "cafe") && g.state.has("cafe")) ? "turnin" : "talk"),
   );
 
-  // ---------------- Mélanie, barista des Jardins Gamelin
+  // ---------------- Yasmine, barista des Jardins Gamelin (originaire d'Alger)
   g.addNpc(
     {
       id: "barista",
-      name: "Mélanie",
+      name: "Yasmine Belkacem",
       role: "barista, Jardins Gamelin",
       color: "#6d4c41",
       seed: 66,
       look: { skin: "#a96d48", hair: "#1b1410", hairStyle: "curly", top: "#2b2d42", topStyle: "tshirt", bottom: "#3a5a78", bottomStyle: "jeans", hat: "tuque", hatColor: "#e63946" },
       at: () => ({ x: kiosk[0], z: kiosk[1], facing: Math.PI }),
-      barks: ["Café, chocolat chaud, venez vous réchauffer !", "C'est la dernière fin de semaine des Jardins !"],
+      barks: ["Café, chocolat chaud, venez vous réchauffer !", "C'est la dernière fin de semaine des Jardins !", "Chez nous, à Alger, on boirait un thé à la menthe… mais ici, c'est café !"],
     },
     baristaTree(),
     () => "debut",
@@ -281,19 +281,19 @@ export function installStory(g: G) {
     (g) => (g.quests.status("touriste") === "available" ? "quest" : "talk"),
   );
 
-  // ---------------- Sophie, bénévole du festival (dépliants)
+  // ---------------- Fabienne, bénévole du festival (dépliants), originaire de Port-au-Prince
   const sophiePos: V2 = [P.x1 + 7.5, P.z1 - 6];
   g.addNpc(
     {
       id: "sophie",
-      name: "Sophie Gagné",
+      name: "Fabienne Jean-Baptiste",
       role: "bénévole, Festival du Quartier latin",
       color: "#ff006e",
       seed: 122,
       look: { skin: "#8a5536", hair: "#1b1410", hairStyle: "long", top: "#ff006e", topStyle: "tshirt", bottom: "#22223b", bottomStyle: "jeans", hat: "cap", hatColor: "#ffbe0b" },
       at: () => ({ x: sophiePos[0], z: sophiePos[1], facing: -Math.PI / 2 }),
       holding: "clipboard",
-      barks: ["Le vent a emporté mes dépliants !", "Programme du festival, gratuit !"],
+      barks: ["Le vent a emporté mes dépliants !", "Programme du festival, gratuit !", "Bonjou ! Euh… bonjour ! Programme du festival ?"],
     },
     sophieTree(),
     (g) => (g.quests.isDone("depliants") ? "apres" : g.quests.isActive("depliants") ? (g.state.has("depliant", 5) ? "fini" : "attente") : "debut"),
@@ -309,7 +309,7 @@ export function installStory(g: G) {
   flyerSpots.forEach((p, i) => {
     const c = g.addCollectible(`depliant${i}`, "depliant", p[0], p[1], SIDEWALK_Y, () => {
       const n = g.state.inv.get("depliant") ?? 0;
-      if (g.quests.isActive("depliants")) g.toast(`Dépliant ${n} sur 5`, n >= 5 ? "Rapporte-les à Sophie !" : "Il en reste d'autres dans le coin…", "quest");
+      if (g.quests.isActive("depliants")) g.toast(`Dépliant ${n} sur 5`, n >= 5 ? "Rapporte-les à Fabienne !" : "Il en reste d'autres dans le coin…", "quest");
     });
     c.mesh.visible = false;
     c.active = false;
@@ -384,7 +384,7 @@ export function installStory(g: G) {
       summary: "Une bourrasque a dispersé les dépliants du festival autour de la Place Émilie-Gamelin.",
       steps: [
         { id: "ramasser", text: (g) => `Ramasse les dépliants envolés : <b>${Math.min(5, g.state.inv.get("depliant") ?? 0)} / 5</b>.`, target: (g) => nearestFlyer(g), done: (g) => g.state.has("depliant", 5) },
-        { id: "rapporter", text: "Rapporte les dépliants à <b>Sophie</b> (Berri et Sainte-Catherine).", target: () => sophiePos },
+        { id: "rapporter", text: "Rapporte les dépliants à <b>Fabienne</b> (Berri et Sainte-Catherine).", target: () => sophiePos },
       ],
       reward: { money: 7, text: "Le festival peut continuer !" },
     },
@@ -392,9 +392,9 @@ export function installStory(g: G) {
       id: "portefeuille",
       title: "Le portefeuille perdu",
       giver: "evenement",
-      summary: "Tu as trouvé un portefeuille sur le trottoir. Une carte au nom de Martine Roy s'y trouve.",
-      steps: [{ id: "rendre", text: "Rends le portefeuille à <b>Martine Roy</b>, qui le cherche près de Sainte-Catherine.", target: (g) => (g.npcs.has("martine") ? [g.npc("martine").pos.x, g.npc("martine").pos.z] : null) }],
-      reward: { money: 15, text: "Martine te remercie de ton honnêteté." },
+      summary: "Tu as trouvé un portefeuille sur le trottoir. Une carte au nom de Mariama Diallo s'y trouve.",
+      steps: [{ id: "rendre", text: "Rends le portefeuille à <b>Mariama Diallo</b>, qui le cherche près de Sainte-Catherine.", target: (g) => (g.npcs.has("martine") ? [g.npc("martine").pos.x, g.npc("martine").pos.z] : null) }],
+      reward: { money: 15, text: "Mariama te remercie de ton honnêteté." },
     },
   ];
   g.startQuests(q);
@@ -779,7 +779,15 @@ function baristaTree(): DTree<G> {
         { text: `« Je voudrais un café allongé, s'il vous plaît. » (${money(COFFEE_PRICE)})`, next: (g) => (g.state.money >= COFFEE_PRICE ? "cafe" : "fonds"), do: (g) => g.challenge(true) },
         { text: "« Donne-moi un café. »", next: "impoli", do: (g) => g.challenge(false) },
         { text: "« Un chocolat chaud, s'il vous plaît. » (3,25 $)", next: (g) => (g.state.money >= 3.25 ? "choco" : "fonds") },
+        { text: "« Tu viens d'où ? Tu as un bel accent ! »", next: "origine" },
         { text: "Rien pour le moment, merci.", next: null },
+      ],
+    },
+    origine: {
+      text: "Merci ! Je viens d'Alger, en Algérie. Là-bas, on parle arabe, kabyle… et beaucoup français. Je suis arrivée il y a quatre ans pour étudier à l'UQAM. Tout le monde a un accent, à Montréal : c'est ça qui est beau !",
+      choices: [
+        { text: `« Alors je voudrais un café allongé, s'il vous plaît. » (${money(COFFEE_PRICE)})`, next: (g) => (g.state.money >= COFFEE_PRICE ? "cafe" : "fonds"), do: (g) => g.challenge(true) },
+        { text: "Merci, à plus tard !", next: null },
       ],
     },
     impoli: {
@@ -936,6 +944,14 @@ function sophieTree(): DTree<G> {
       choices: [
         { text: "Je vais les ramasser.", next: "ok", do: (g) => g.quests.start("depliants") },
         { text: "C'est quoi, le festival ?", next: "festival" },
+        { text: "Tu viens d'ici ?", next: "origine" },
+      ],
+    },
+    origine: {
+      text: "Je suis née à Port-au-Prince, en Haïti. À la maison, on parle créole et français. « Bonjou ! », c'est « bonjour » en créole. Montréal, c'est chez moi depuis dix ans. Tu m'aides à retrouver mes dépliants ?",
+      choices: [
+        { text: "Bien sûr !", next: "ok", do: (g) => g.quests.start("depliants") },
+        { text: "Plus tard, peut-être.", next: null },
       ],
     },
     festival: {

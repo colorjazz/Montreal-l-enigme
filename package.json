@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "node tests/verify.mjs",
-    "test:souris": "node tests/souris.mjs"
+    "test:souris": "node tests/souris.mjs",
+    "test:vapoterie": "node tests/vapoterie.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

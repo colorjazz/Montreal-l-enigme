@@ -64,7 +64,7 @@ Place Dupuis, Place Émilie-Gamelin (allées, sculptures, Jardins Gamelin et
 leurs guirlandes), Place Pasteur, Cégep du Vieux Montréal ; au loin, le
 mont Royal et sa croix illuminée, le centre-ville, le pont Jacques-Cartier.
 
-**La vie du quartier** : 11 personnages nommés avec dialogues à choix (surtout québécois, mais aussi francophones d'ailleurs : Yasmine d'Alger, Fabienne de Port-au-Prince, Mariama de Dakar, Pierre-Yves de Lyon),
+**La vie du quartier** : 12 personnages nommés avec dialogues à choix (surtout québécois, mais aussi francophones d'ailleurs : Yasmine d'Alger, Fabienne de Port-au-Prince, Mariama de Dakar, Pierre-Yves de Lyon),
 une quarantaine de passants qui circulent sur les trottoirs et traversent
 aux passages piétons (on peut les saluer), une vingtaine de voitures, taxis
 et autobus de la STM qui respectent les feux et les arrêts, freinent devant
@@ -84,6 +84,11 @@ chaque heure, pigeons, feuilles qui tombent, ambiance sonore synthétisée.
   chien qui fuit si l'on court) · *Un Lyonnais à Montréal* (escorte) ·
   *Dépliants au vent* · *Le portefeuille perdu* (déclenchée par un
   événement).
+
+**Le Daron Fumant** : vapoterie de la rue Saint-Denis (entre De Maisonneuve et
+Sainte-Catherine) où l'on peut entrer. Vitrine givrée, comptoir, affiches
+« 18 ans et plus ». Steve, le vendeur, demande l'âge et une pièce d'identité,
+puis refuse de vendre aux moins de 18 ans.
 
 **Événements aléatoires** (toutes les 1 à 2 minutes) : averse (chaussée
 mouillée, parapluies), manifestation étudiante sur Sainte-Catherine,
@@ -143,10 +148,10 @@ pillow`) : `python tools/generate_city.py`.
 ## Vérification
 
 `npm test` construit le jeu, le sert, ouvre Chromium sans écran et exécute
-28 tests : chargement, contenu du monde, rendu, marche / course / saut,
+29 tests : chargement, contenu du monde, rendu, marche / course / saut,
 collision avec un bâtiment, montée d'une bordure, descente dans le métro,
 tourniquet (bloqué sans carte OPUS), arrivée de la rame, objets physiques,
-dialogues des 11 personnages, la quête principale de bout en bout, les 6
+dialogues des 12 personnages, la vapoterie (entrée et refus de vente), la quête principale de bout en bout, les 6
 quêtes secondaires, les 8 événements, le planificateur d'événements, la
 circulation (arrêts aux feux, arrêt devant le joueur, aucun choc), le cycle
 jour/nuit, l'interface, le son, les performances et l'absence d'erreurs.

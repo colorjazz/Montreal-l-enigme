@@ -7,6 +7,7 @@ import { drawMetroLogo, makeCanvasTexture, FONT, FONT_SERIF } from "../core/text
 import { pointInPoly, distToSegment, type V2 } from "./geom";
 import { quatY } from "./props";
 import { Rng } from "../core/rng";
+import { buildVapoterie, type VapoterieLayout } from "./vapoterie";
 
 type ColliderDesc = import("@dimforge/rapier3d-compat").ColliderDesc;
 
@@ -80,7 +81,14 @@ export class Landmarks {
     this.buildGamelin();
     this.buildFacadeSigns();
     this.buildPasteur();
+    this.vapoterie = buildVapoterie(city, physics, this.group);
+    if (this.vapoterie) {
+      this.glowMats.push(...this.vapoterie.glow);
+      this.info.push({ id: "vapoterie", name: this.vapoterie.name, pos: this.vapoterie.outside, blurb: "Boutique de produits de vapotage de la rue Saint-Denis. Vente interdite aux moins de 18 ans." });
+    }
   }
+  /** Boutique où l'on peut entrer (vendeur, porte, salle). */
+  vapoterie: VapoterieLayout | null = null;
 
   private col(desc: ColliderDesc) {
     this.physics.world.createCollider(desc, this.physics.fixedBody);

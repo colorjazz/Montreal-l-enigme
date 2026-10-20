@@ -102,8 +102,20 @@ const STYLE_TINTS: Record<string, string[]> = {
 
 const CORNICE_COLORS = ["#2b2b2b", "#3b4a3a", "#5a3b2e", "#d8d2c4", "#4a4f5a", "#6b2f2a"];
 
+/** Commerce où l'on peut entrer : la vapoterie de la rue Saint-Denis (point dans son empreinte). */
+export const VAPOTERIE_AT: V2 = [-145.8, 108.5];
+
+export interface InteriorShell {
+  poly: V2[];
+  /** Façade donnant sur la rue (porte et vitrine). */
+  front: Frontage;
+  groundH: number;
+}
+
 export class City {
   readonly group = new THREE.Group();
+  /** Rez-de-chaussée creux (intérieur visitable), construit par les repères. */
+  vapoterie: InteriorShell | null = null;
   readonly facadeMat: THREE.MeshStandardMaterial;
   readonly ground: GroundMaterials;
   readonly frontages: Frontage[] = [];
@@ -409,10 +421,12 @@ export class City {
     const roof = LAYER.roof;
     const plain = LAYER.plain;
 
+    const shellBi = this.data.buildings.findIndex((b) => !b.filler && pointInPoly(VAPOTERIE_AT[0], VAPOTERIE_AT[1], b.poly));
     this.data.buildings.forEach((b, bi) => {
       let poly = b.poly;
       if (poly.length < 3) return;
       if (polyArea(poly) < 0) poly = [...poly].reverse();
+      const shell = bi === shellBi;
       const c = centroid(poly);
       const style = b.style in LAYER ? b.style : "brick_red";
       const layer = LAYER[style];
@@ -458,7 +472,9 @@ export class City {
           gBays = gLayer === lobby ? Math.max(1, Math.round(len / 4.0)) : bays;
         }
         const groundTint = gLayer === layer ? tint : new THREE.Color(1, 1, 1);
-        if (groundH === 4.2 && gLayer === layer) {
+        if (shell) {
+          /* rez-de-chaussée construit à part (intérieur) */
+        } else if (groundH === 4.2 && gLayer === layer) {
           // grand rez-de-chaussée sans vitrine : étire la texture
           gb.wall(p0, p1, SIDEWALK_Y, groundH, u0, u0 + gBays, seedV, seedV + 1, groundTint, gLayer);
         } else {
@@ -508,8 +524,10 @@ export class City {
         f.groundH = groundH;
         f.height = height;
         f.commercial = commercial && f.commercial;
-        this.frontages.push(f);
+        // la vapoterie a sa propre devanture : pas d'enseigne ni de balcon génériques
+        if (!shell) this.frontages.push(f);
       }
+      if (shell && front.length) this.vapoterie = { poly, front: [...front].sort((a, b) => b.len - a.len)[0], groundH };
       if (!b.filler) this.footprints.push({ poly, h: height, name: b.name, landmark: b.landmark });
       this.buildingCount++;
 
@@ -519,7 +537,9 @@ export class City {
         let cc = colliderChunks.get(key);
         if (!cc) colliderChunks.set(key, (cc = { pos: [], idx: [] }));
         const base = cc.pos.length / 3;
-        for (const [x, z] of poly) cc.pos.push(x, -1, z, x, height + parapet, z);
+        // intérieur visitable : les murs de collision commencent au-dessus du rez-de-chaussée
+        const bottom = shell ? groundH : -1;
+        for (const [x, z] of poly) cc.pos.push(x, bottom, z, x, height + parapet, z);
         const n = poly.length;
         for (let i = 0; i < n; i++) {
           const j = (i + 1) % n;

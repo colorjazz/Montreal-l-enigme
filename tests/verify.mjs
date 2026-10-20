@@ -285,6 +285,43 @@ await test("Dialogue avec chaque personnage nommé", async () => {
   });
 });
 
+// ------------------------------------------------------------------ vapoterie (intérieur visitable)
+await test("Vapoterie : entrer par la porte, refus de vente aux moins de 18 ans", async () => {
+  return ev(() => {
+    const v = window.__ville;
+    const g = v.game;
+    const L = g.landmarks.vapoterie;
+    if (!L) throw new Error("vapoterie absente");
+    const inRoom = () => {
+      const p = g.player.position;
+      let ins = false;
+      for (let i = 0, j = L.room.length - 1; i < L.room.length; j = i++) {
+        const [xi, zi] = L.room[i], [xj, zj] = L.room[j];
+        if (zi > p.z !== zj > p.z && p.x < ((xj - xi) * (p.z - zi)) / (zj - zi) + xi) ins = !ins;
+      }
+      return ins;
+    };
+    v.teleport(L.outside[0], 0.4, L.outside[1]);
+    v.simulate(0.3);
+    if (inRoom()) throw new Error("déjà dedans");
+    v.face(L.inside[0], L.inside[1]);
+    v.simulate(3, ["KeyW"]);
+    if (!inRoom()) throw new Error(`pas entré (${g.player.position.x.toFixed(1)}, ${g.player.position.z.toFixed(1)})`);
+    const y = g.player.position.y;
+    v.closeDialogue();
+    let d = v.talk("vendeur");
+    if (!/quel âge/.test(d.text)) throw new Error(`accueil : ${d.text}`);
+    d = v.choose(0);
+    d = v.choose(0);
+    const refus = /pas de vente/i.test(d.text) && /18 ans/.test(d.text);
+    v.closeDialogue();
+    if (!refus) throw new Error(`pas de refus : ${d.text}`);
+    if (!v.talk("vendeur").text.includes("18 ans")) throw new Error("deuxième visite");
+    v.closeDialogue();
+    return { dedans: true, yPlancher: +y.toFixed(3), refus };
+  });
+});
+
 // ------------------------------------------------------------------ quête principale complète
 await test("Quête principale « L'énigme du Vaisseau d'or » de bout en bout", async () => {
   return ev(() => {

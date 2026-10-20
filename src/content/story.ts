@@ -5,7 +5,7 @@ import type { QuestDef } from "../gameplay/quests";
 import { Dog } from "../actors/dog";
 import { SIDEWALK_Y } from "../world/city";
 import { METRO } from "../world/metroLayout";
-import type { V2 } from "../world/geom";
+import { pointInPoly, type V2 } from "../world/geom";
 import { money } from "../gameplay/state";
 
 /**
@@ -299,6 +299,34 @@ export function installStory(g: G) {
     (g) => (g.quests.isDone("depliants") ? "apres" : g.quests.isActive("depliants") ? (g.state.has("depliant", 5) ? "fini" : "attente") : "debut"),
     (g) => (g.quests.status("depliants") === "available" ? "quest" : g.quests.isActive("depliants") && g.state.has("depliant", 5) ? "turnin" : "talk"),
   );
+
+  // ---------------- Steve, vendeur du Daron Fumant (rue Saint-Denis) : pas de vente aux mineurs
+  const vape = g.game.landmarks.vapoterie;
+  if (vape) {
+    g.addNpc(
+      {
+        id: "vendeur",
+        name: "Steve Bergeron",
+        role: "vendeur, vapoterie Le Daron Fumant",
+        color: "#7b5cc4",
+        seed: 1808,
+        look: { skin: "#e3b48f", hair: "#3b2a1e", hairStyle: "short", beard: true, top: "#2c2442", topStyle: "hoodie", bottom: "#22223b", bottomStyle: "jeans", hat: "cap", hatColor: "#8a6bd1" },
+        at: () => vape.vendor,
+        barks: ["Bonjour ! Juste avant : as-tu 18 ans ?", "Pièce d'identité avec photo, s'il vous plaît.", "Ici, c'est 18 ans et plus. Pas d'exception."],
+      },
+      vendeurTree(),
+      (g) => (g.state.is("vape_refus") ? "revenu" : "debut"),
+      () => "talk",
+    );
+    // en entrant : rappel affiché une fois par visite
+    let inside = false;
+    g.tickers.push(() => {
+      const p = g.player.position;
+      const now = p.y > -1 && pointInPoly(p.x, p.z, vape.room);
+      if (now && !inside) g.toast(vape.name, "Vente interdite aux moins de 18 ans · pièce d'identité exigée.", "info");
+      inside = now;
+    });
+  }
   const flyerSpots: V2[] = [
     [P.x0 + 20, P.z0 + 60],
     [P.x1 - 6, P.z0 + 30],
@@ -968,5 +996,80 @@ function sophieTree(): DTree<G> {
       },
     },
     apres: { text: "Le festival commence à 19 h sur la place. On t'attend !" },
+  };
+}
+
+function vendeurTree(): DTree<G> {
+  const refus = (g: G) => g.state.flag("vape_refus");
+  return {
+    debut: {
+      text: "Salut ! Bienvenue au Daron Fumant. Avant toute chose : quel âge as-tu ?",
+      choices: [
+        { text: "« J'ai 18 ans. »", next: "carte" },
+        { text: "« J'ai seize ans. »", next: "mineur" },
+        { text: "« Pourquoi vous me demandez ça ? »", next: "pourquoi" },
+        { text: "« Je veux juste regarder. »", next: "regarder" },
+      ],
+    },
+    pourquoi: {
+      text: "Parce que c'est la loi : au Québec, il est interdit de vendre des produits de vapotage aux personnes de moins de 18 ans. Et je demande une pièce d'identité à tous ceux qui ont l'air jeunes. Alors… tu as quel âge ?",
+      choices: [
+        { text: "« J'ai 18 ans. »", next: "carte" },
+        { text: "« Je n'ai pas encore 18 ans. »", next: "mineur" },
+      ],
+    },
+    regarder: {
+      text: "Regarder, oui, mais je ne vendrai rien à quelqu'un qui n'a pas 18 ans. C'est aussi pour ça que nos vitrines sont givrées : les produits ne doivent pas se voir de la rue. Tu as 18 ans ?",
+      choices: [
+        { text: "« Oui, j'ai 18 ans. »", next: "carte" },
+        { text: "« Non… »", next: "mineur" },
+      ],
+    },
+    carte: {
+      text: "Parfait. Montre-moi une pièce d'identité avec photo : permis de conduire, carte d'assurance maladie ou passeport.",
+      choices: [
+        { text: "« Euh… je l'ai oubliée à la maison. »", next: "pasdecarte" },
+        { text: "« C'est pour mon grand frère, il a 20 ans ! »", next: "frere" },
+        { text: "« Bon, d'accord… j'ai 16 ans. »", next: "mineur" },
+      ],
+    },
+    pasdecarte: {
+      text: "Désolé, pas de carte, pas de vente. Tu dois avoir 18 ans pour acheter ici, et tu dois me le prouver. Je ne te vendrai rien aujourd'hui.",
+      do: refus,
+      choices: [
+        { text: "« Allez, juste une fois ! »", next: "insiste" },
+        { text: "« D'accord, je comprends. »", next: "fin" },
+      ],
+    },
+    frere: {
+      text: "Acheter pour quelqu'un d'autre ? Non plus. Si ton frère veut quelque chose, il viendra lui-même avec sa carte. Je ne vends pas aux mineurs, point final.",
+      do: refus,
+      choices: [
+        { text: "« Allez, juste une fois ! »", next: "insiste" },
+        { text: "« D'accord, je comprends. »", next: "fin" },
+      ],
+    },
+    mineur: {
+      text: "Merci d'être honnête. Mais je ne peux rien te vendre : tu dois avoir 18 ans. Si je vends à un mineur, je risque une grosse amende, et la boutique aussi.",
+      do: refus,
+      choices: [
+        { text: "« C'est injuste ! »", next: "insiste" },
+        { text: "« Je comprends. »", next: "fin" },
+      ],
+    },
+    insiste: {
+      text: "Non. C'est non, et ça va rester non. La nicotine crée une dépendance très vite, surtout à ton âge. Garde ton argent : va plutôt te payer un chocolat chaud aux Jardins Gamelin !",
+      choices: [{ text: "« Bon… salut. »", next: "fin" }],
+    },
+    fin: {
+      text: "Bonne journée ! Et si tu cherches le Théâtre St-Denis, remonte la rue Saint-Denis vers le nord, de l'autre côté de De Maisonneuve.",
+    },
+    revenu: {
+      text: "Encore toi ? Ma réponse n'a pas changé : pas de vente aux moins de 18 ans. Reviens le jour de tes 18 ans… avec ta carte !",
+      choices: [
+        { text: "« Je voulais juste dire bonjour. »", next: "fin" },
+        { text: "« Pourquoi c'est 18 ans ? »", next: "pourquoi" },
+      ],
+    },
   };
 }
